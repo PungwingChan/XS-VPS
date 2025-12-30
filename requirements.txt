@@ -1,0 +1,16 @@
+# XServer VPS 自动续期 - 终极增强版依赖
+
+# --- Playwright 核心 ---
+playwright>=1.40.0
+
+# 如果使用 stealth（推荐）
+playwright-stealth>=1.0.5
+
+# --- 网络请求 / API 调用 ---
+aiohttp>=3.9.0
+
+# --- 类型提示（可选） ---
+typing-extensions>=4.0.0
+
+# --- 若你要 OCR API 调试 JSON 响应（可选） ---
+pydantic>=2.0.0

@@ -1,0 +1,96 @@
+name: 🚀 XServer VPS 自动续期
+
+on:
+  schedule:
+    - cron: '0 0 */3 * *'
+  workflow_dispatch:
+
+jobs:
+  renewal:
+    name: 🔄 执行续期任务
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 检出代码
+        uses: actions/checkout@v4
+
+      - name: 🐍 设置 Python 环境
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 📦 安装 Python 依赖
+        run: |
+          pip install -r requirements.txt
+          pip install playwright-stealth || true
+
+      - name: 🌐 安装 Playwright Chromium
+        run: |
+          python -m playwright install chromium
+          sudo apt-get update
+          sudo apt-get install -y fonts-ipafont-gothic fonts-ipafont-mincho
+
+      - name: 🖥️ 启动 Xvfb (Playwright GUI)
+        run: |
+          sudo apt-get install -y xvfb
+          export DISPLAY=:99
+          Xvfb :99 -screen 0 1920x1080x24 &
+          echo "DISPLAY=:99" >> $GITHUB_ENV
+
+      - name: 🎯 运行续期脚本
+        env:
+          XSERVER_EMAIL: ${{ secrets.XSERVER_EMAIL }}
+          XSERVER_PASSWORD: ${{ secrets.XSERVER_PASSWORD }}
+          XSERVER_VPS_ID: ${{ secrets.XSERVER_VPS_ID }}
+
+          CAPTCHA_API_URL: ${{ secrets.CAPTCHA_API_URL }}
+
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+          PROXY_SERVER: ${{ secrets.PROXY_SERVER }}
+
+          WAIT_TIMEOUT: '60000'
+        run: |
+          if [ -n "$PROXY_SERVER" ]; then
+            echo "🌐 已设置代理: $PROXY_SERVER"
+          else
+            echo "⚠️ 未设置代理，将直接使用 GitHub Actions 默认 IP"
+          fi
+
+          echo "🚀 开始执行续期任务..."
+          python3 renewal.py
+
+      - name: 📊 显示运行结果
+        if: always()
+        run: |
+          echo "📄 README.md:"
+          cat README.md
+          echo ""
+          echo "📝 renewal.log:"
+          tail -n 200 renewal.log
+
+      - name: 📦 上传运行日志
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-${{ github.run_number }}
+          path: |
+            renewal.log
+            cache.json
+            *.png
+
+      - name: 💾 提交状态更新
+        if: always()
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "GitHub Actions Bot 🤖"
+          git add README.md cache.json || true
+
+          if git diff --cached --quiet; then
+            echo "ℹ️ 无需提交"
+          else
+            git commit -m "🔄 自动续期状态更新 [skip ci]"
+            git push
+          fi
